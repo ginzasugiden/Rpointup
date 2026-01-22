@@ -326,6 +326,225 @@
             background: #e3f2fd;
             color: #1565c0;
         }
+        /* 商品検索 */
+        .search-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .search-header {
+            margin-bottom: 12px;
+        }
+        .search-header label {
+            font-weight: 600;
+            color: #333;
+        }
+        .search-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .search-controls input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .search-controls input:focus {
+            outline: none;
+            border-color: #bf0000;
+        }
+        .search-controls input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+        .btn-search {
+            background: #1976d2;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .btn-search:hover:not(:disabled) {
+            background: #1565c0;
+        }
+        .btn-search:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-small:hover {
+            background: #e8e8e8;
+        }
+        .btn-danger {
+            background: #ffebee;
+            color: #c62828;
+            border-color: #ef9a9a;
+        }
+        .btn-danger:hover {
+            background: #ffcdd2;
+        }
+        .search-status {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .search-status.loading {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .search-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .search-results {
+            margin-top: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+        }
+        .search-results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e0e0e0;
+            border-radius: 8px 8px 0 0;
+        }
+        .search-results-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .search-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            gap: 12px;
+        }
+        .search-item:last-child {
+            border-bottom: none;
+        }
+        .search-item:hover {
+            background: #fafafa;
+        }
+        .search-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #bf0000;
+        }
+        .search-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .search-item-title {
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .search-item-id {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .search-item-price {
+            font-weight: 600;
+            color: #bf0000;
+            white-space: nowrap;
+        }
+        .search-pagination {
+            padding: 12px 16px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+        .search-pagination button {
+            margin: 0 4px;
+        }
+        /* 選択済み商品 */
+        .selected-items-section {
+            background: #fff8e1;
+            padding: 16px;
+            border-radius: 8px;
+            border: 2px solid #ffcc02;
+        }
+        .selected-items-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .selected-items-header label {
+            font-weight: 600;
+            color: #333;
+        }
+        .selected-items-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .selected-items-list .no-items {
+            color: #999;
+            font-size: 14px;
+            margin: 0;
+        }
+        .selected-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            border: 1px solid #e0e0e0;
+        }
+        .selected-item .remove-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1;
+        }
+        .selected-item .remove-btn:hover {
+            color: #c62828;
+        }
+        /* 手動入力 */
+        .manual-input-section {
+            margin-top: 16px;
+            background: #f5f5f5;
+            padding: 12px 16px;
+            border-radius: 8px;
+        }
+        .manual-input-section summary {
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+        }
+        .manual-input-section textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            resize: vertical;
+        }
         /* 結果詳細 */
         .results-detail {
             margin-top: 16px;
@@ -373,12 +592,57 @@
             <!-- 商品設定 -->
             <div class="form-section">
                 <h2>📦 対象商品</h2>
-                <div class="form-group">
-                    <label>商品管理番号<span class="required">*</span></label>
-                    <textarea id="manageNumbers" placeholder="商品管理番号を1行に1つずつ入力してください&#10;例:&#10;item-001&#10;item-002&#10;item-003"></textarea>
-                    <p class="hint">改行区切りで複数指定可能。スペースやカンマでも区切れます。</p>
+                
+                <!-- 商品検索 -->
+                <div class="search-box">
+                    <div class="search-header">
+                        <label>🔍 商品検索</label>
+                        <p class="hint">認証後に検索できます。検索結果から商品を選択して追加してください。</p>
+                    </div>
+                    <div class="search-controls">
+                        <input type="text" id="searchKeyword" placeholder="商品名やキーワードで検索" disabled>
+                        <button type="button" class="btn btn-search" id="searchBtn" onclick="searchItems()" disabled>
+                            検索
+                        </button>
+                    </div>
+                    <div id="searchStatus" class="search-status" style="display: none;"></div>
+                    
+                    <!-- 検索結果 -->
+                    <div id="searchResults" class="search-results" style="display: none;">
+                        <div class="search-results-header">
+                            <span id="searchResultCount">0件の商品が見つかりました</span>
+                            <button type="button" class="btn btn-small" onclick="addSelectedItems()">
+                                ✅ 選択した商品を追加
+                            </button>
+                        </div>
+                        <div id="searchResultsList" class="search-results-list"></div>
+                        <div id="searchPagination" class="search-pagination"></div>
+                    </div>
                 </div>
-                <div id="itemsList" class="items-list"></div>
+                
+                <!-- 選択済み商品 -->
+                <div class="selected-items-section">
+                    <div class="selected-items-header">
+                        <label>📋 選択済み商品 (<span id="selectedCount">0</span>件)</label>
+                        <button type="button" class="btn btn-small btn-danger" onclick="clearSelectedItems()">
+                            🗑️ 全てクリア
+                        </button>
+                    </div>
+                    <div id="selectedItemsList" class="selected-items-list">
+                        <p class="no-items">商品が選択されていません</p>
+                    </div>
+                </div>
+                
+                <!-- 手動入力（折りたたみ） -->
+                <details class="manual-input-section">
+                    <summary>📝 商品管理番号を直接入力</summary>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <textarea id="manageNumbers" placeholder="商品管理番号を1行に1つずつ入力&#10;例:&#10;item-001&#10;item-002"></textarea>
+                        <button type="button" class="btn btn-small" onclick="addManualItems()" style="margin-top: 8px;">
+                            ➕ 入力した商品を追加
+                        </button>
+                    </div>
+                </details>
             </div>
 
             <!-- ポイント変倍設定 -->
@@ -461,6 +725,8 @@
 
         let shops = [];
         let authenticatedShop = null; // 認証済み店舗情報
+        let selectedItems = new Map(); // 選択済み商品 (manageNumber -> item情報)
+        let searchCursorMark = null; // ページネーション用
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -624,6 +890,235 @@
             document.getElementById('authStatus').style.display = 'none';
         }
 
+        // ===========================================
+        // 商品検索機能
+        // ===========================================
+
+        // 検索を有効化（認証成功後に呼び出す）
+        function enableSearch() {
+            document.getElementById('searchKeyword').disabled = false;
+            document.getElementById('searchBtn').disabled = false;
+        }
+
+        // 検索を無効化
+        function disableSearch() {
+            document.getElementById('searchKeyword').disabled = true;
+            document.getElementById('searchBtn').disabled = true;
+        }
+
+        // 商品検索
+        async function searchItems(cursorMark = null) {
+            const shopId = document.getElementById('shopId').value.trim();
+            const shopPassword = document.getElementById('shopPassword').value;
+            const keyword = document.getElementById('searchKeyword').value.trim();
+
+            if (!shopId || !shopPassword) {
+                showSearchStatus('店舗ID・パスワードを入力してから検索してください', 'error');
+                return;
+            }
+
+            showSearchStatus('検索中...', 'loading');
+
+            try {
+                const requestData = {
+                    action: 'searchItems',
+                    shopId: shopId,
+                    password: shopPassword,
+                    keyword: keyword,
+                    cursorMark: cursorMark
+                };
+
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 認証成功 - 検索を有効化
+                    enableSearch();
+                    showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
+                    
+                    displaySearchResults(result.items, result.totalCount, result.nextCursorMark);
+                    hideSearchStatus();
+                } else {
+                    if (result.error && result.error.includes('認証')) {
+                        showAuthStatus(`❌ ${result.error}`, 'error');
+                        disableSearch();
+                    }
+                    showSearchStatus(`❌ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showSearchStatus(`❌ エラー: ${error.message}`, 'error');
+            }
+        }
+
+        // 検索ステータス表示
+        function showSearchStatus(message, type) {
+            const statusEl = document.getElementById('searchStatus');
+            statusEl.textContent = message;
+            statusEl.className = `search-status ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        // 検索ステータス非表示
+        function hideSearchStatus() {
+            document.getElementById('searchStatus').style.display = 'none';
+        }
+
+        // 検索結果を表示
+        function displaySearchResults(items, totalCount, nextCursorMark) {
+            const resultsContainer = document.getElementById('searchResults');
+            const resultsList = document.getElementById('searchResultsList');
+            const countEl = document.getElementById('searchResultCount');
+            const paginationEl = document.getElementById('searchPagination');
+
+            searchCursorMark = nextCursorMark;
+
+            if (!items || items.length === 0) {
+                countEl.textContent = '商品が見つかりませんでした';
+                resultsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #999;">検索結果がありません</p>';
+                paginationEl.innerHTML = '';
+                resultsContainer.style.display = 'block';
+                return;
+            }
+
+            countEl.textContent = `${totalCount || items.length}件の商品が見つかりました`;
+
+            resultsList.innerHTML = items.map(item => {
+                const isSelected = selectedItems.has(item.manageNumber);
+                const price = item.price || '価格未設定';
+                return `
+                    <div class="search-item">
+                        <input type="checkbox" 
+                               id="item-${item.manageNumber}" 
+                               value="${item.manageNumber}"
+                               ${isSelected ? 'checked' : ''}
+                               onchange="toggleSearchItem(this, '${item.manageNumber}', '${escapeHtml(item.title)}', '${price}')">
+                        <div class="search-item-info">
+                            <div class="search-item-title">${escapeHtml(item.title)}</div>
+                            <div class="search-item-id">${item.manageNumber}</div>
+                        </div>
+                        <div class="search-item-price">${price}円</div>
+                    </div>
+                `;
+            }).join('');
+
+            // ページネーション
+            if (nextCursorMark) {
+                paginationEl.innerHTML = `
+                    <button type="button" class="btn btn-small" onclick="searchItems('${nextCursorMark}')">
+                        次の30件を表示 →
+                    </button>
+                `;
+            } else {
+                paginationEl.innerHTML = '';
+            }
+
+            resultsContainer.style.display = 'block';
+        }
+
+        // HTMLエスケープ
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, function(match) {
+                const escape = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                };
+                return escape[match];
+            });
+        }
+
+        // 検索結果の商品をトグル
+        function toggleSearchItem(checkbox, manageNumber, title, price) {
+            if (checkbox.checked) {
+                selectedItems.set(manageNumber, { manageNumber, title, price });
+            } else {
+                selectedItems.delete(manageNumber);
+            }
+            updateSelectedItemsDisplay();
+            updatePreview();
+        }
+
+        // 選択した商品を追加（一括）
+        function addSelectedItems() {
+            const checkboxes = document.querySelectorAll('#searchResultsList input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => {
+                const manageNumber = cb.value;
+                const itemEl = cb.closest('.search-item');
+                const title = itemEl.querySelector('.search-item-title').textContent;
+                const price = itemEl.querySelector('.search-item-price').textContent.replace('円', '');
+                selectedItems.set(manageNumber, { manageNumber, title, price });
+            });
+            updateSelectedItemsDisplay();
+            updatePreview();
+        }
+
+        // 手動入力から追加
+        function addManualItems() {
+            const text = document.getElementById('manageNumbers').value;
+            const numbers = parseManageNumbers(text);
+            numbers.forEach(num => {
+                if (!selectedItems.has(num)) {
+                    selectedItems.set(num, { manageNumber: num, title: '(手動入力)', price: '' });
+                }
+            });
+            document.getElementById('manageNumbers').value = '';
+            updateSelectedItemsDisplay();
+            updatePreview();
+        }
+
+        // 選択済み商品を削除
+        function removeSelectedItem(manageNumber) {
+            selectedItems.delete(manageNumber);
+            updateSelectedItemsDisplay();
+            updatePreview();
+            
+            // 検索結果のチェックボックスも更新
+            const checkbox = document.getElementById(`item-${manageNumber}`);
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        }
+
+        // 全ての選択済み商品をクリア
+        function clearSelectedItems() {
+            selectedItems.clear();
+            updateSelectedItemsDisplay();
+            updatePreview();
+            
+            // 検索結果のチェックボックスも全て外す
+            document.querySelectorAll('#searchResultsList input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+
+        // 選択済み商品の表示を更新
+        function updateSelectedItemsDisplay() {
+            const listEl = document.getElementById('selectedItemsList');
+            const countEl = document.getElementById('selectedCount');
+            
+            countEl.textContent = selectedItems.size;
+            
+            if (selectedItems.size === 0) {
+                listEl.innerHTML = '<p class="no-items">商品が選択されていません</p>';
+                return;
+            }
+            
+            listEl.innerHTML = Array.from(selectedItems.values()).map(item => `
+                <div class="selected-item">
+                    <span title="${escapeHtml(item.title)}">${item.manageNumber}</span>
+                    <button type="button" class="remove-btn" onclick="removeSelectedItem('${item.manageNumber}')">×</button>
+                </div>
+            `).join('');
+        }
+
         // 日時をdatetime-local形式にフォーマット
         function formatDateTimeLocal(date) {
             const year = date.getFullYear();
@@ -682,19 +1177,9 @@
         // プレビュー更新
         function updatePreview() {
             const shopId = document.getElementById('shopId').value;
-            const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
+            const manageNumbers = Array.from(selectedItems.keys()); // 選択済み商品から取得
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
-
-            // 商品リスト表示
-            const itemsList = document.getElementById('itemsList');
-            if (manageNumbers.length > 0) {
-                itemsList.innerHTML = manageNumbers.map(num => 
-                    `<span class="item-tag">${num}</span>`
-                ).join('');
-            } else {
-                itemsList.innerHTML = '';
-            }
 
             // プレビューJSON
             const previewData = {
@@ -727,6 +1212,7 @@
             document.getElementById('shopId').value = '';
             document.getElementById('shopPassword').value = '';
             document.getElementById('manageNumbers').value = '';
+            document.getElementById('searchKeyword').value = '';
             document.getElementById('pointRateSlider').value = 2;
             document.getElementById('pointRateValue').textContent = '2';
             document.getElementById('noEndDate').checked = false;
@@ -734,9 +1220,18 @@
             document.getElementById('endHour').disabled = false;
             document.getElementById('statusMessage').style.display = 'none';
             document.getElementById('resultsDetail').innerHTML = '';
+            document.getElementById('searchResults').style.display = 'none';
             hideValidationError();
             hideAuthStatus();
+            hideSearchStatus();
             authenticatedShop = null;
+            
+            // 選択済み商品をクリア
+            selectedItems.clear();
+            updateSelectedItemsDisplay();
+            
+            // 検索を無効化
+            disableSearch();
             
             setDefaultDateTime();
             
@@ -747,7 +1242,7 @@
         async function submitData() {
             const shopId = document.getElementById('shopId').value.trim();
             const shopPassword = document.getElementById('shopPassword').value;
-            const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
+            const manageNumbers = Array.from(selectedItems.keys()); // 選択済み商品から取得
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
             
@@ -764,7 +1259,7 @@
                 return;
             }
             if (manageNumbers.length === 0) {
-                showStatus('商品管理番号を入力してください', 'error');
+                showStatus('商品を選択してください', 'error');
                 return;
             }
             if (!startDate) {
