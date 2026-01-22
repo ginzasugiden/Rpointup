@@ -281,6 +281,33 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        /* 日時選択 */
+        .datetime-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .date-input {
+            flex: 1;
+            min-width: 140px;
+        }
+        .hour-select {
+            width: 80px;
+            text-align: center;
+        }
+        .time-suffix {
+            color: #666;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .validation-error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
         /* 結果詳細 */
         .results-detail {
             margin-top: 16px;
@@ -351,13 +378,23 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>開始日時<span class="required">*</span></label>
-                        <input type="datetime-local" id="startDateTime">
+                        <div class="datetime-select">
+                            <input type="date" id="startDate" class="date-input">
+                            <select id="startHour" class="hour-select">
+                            </select>
+                            <span class="time-suffix">:00:00</span>
+                        </div>
                         <p class="hint">現在時刻の2時間後〜60日後まで</p>
                     </div>
                     <div class="form-group">
                         <label>終了日時</label>
-                        <input type="datetime-local" id="endDateTime">
-                        <p class="hint">空欄の場合は無期限</p>
+                        <div class="datetime-select">
+                            <input type="date" id="endDate" class="date-input">
+                            <select id="endHour" class="hour-select">
+                            </select>
+                            <span class="time-suffix">:59:59</span>
+                        </div>
+                        <p class="hint">開始日時より後の時間を選択</p>
                     </div>
                 </div>
 
@@ -366,6 +403,10 @@
                         <input type="checkbox" id="noEndDate">
                         <label for="noEndDate" style="margin: 0; font-weight: normal;">終了日時を設定しない（無期限）</label>
                     </div>
+                </div>
+                
+                <div id="dateValidationError" class="validation-error" style="display: none;">
+                    ⚠️ 終了日時は開始日時より後に設定してください
                 </div>
             </div>
 
@@ -396,24 +437,162 @@
         // ===========================================
         // 設定 - ここを変更してください
         // ===========================================
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZL7lUtYmccXj5q5-YW_CI7W_x2QQp88NB6JDiD8cKC3-KJRUy2y3g_InBTdEw/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZl7IUtYmccXj5a5-YW_Cl7W_x20p88NB6JDl8cKC3-KjRuGN8Ew8j0E0Y3Jcw/exec';
         // ===========================================
 
         let shops = [];
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
+            // 時間セレクトボックスを初期化
+            initHourSelects();
+            
             // デフォルトの開始日時（3時間後）
-            const now = new Date();
-            now.setHours(now.getHours() + 3);
-            now.setMinutes(0, 0, 0);
-            document.getElementById('startDateTime').value = formatDateTimeLocal(now);
+            setDefaultDateTime();
             
             // 店舗リストを読み込み（JSONP方式）
             loadShopsJsonp();
             
+            // イベントリスナー設定
+            setupEventListeners();
+            
             updatePreview();
         });
+
+        // 時間セレクトボックスを初期化（0〜23時）
+        function initHourSelects() {
+            const startHourSelect = document.getElementById('startHour');
+            const endHourSelect = document.getElementById('endHour');
+            
+            for (let h = 0; h < 24; h++) {
+                const hourStr = String(h).padStart(2, '0');
+                
+                const option1 = document.createElement('option');
+                option1.value = h;
+                option1.textContent = hourStr + '時';
+                startHourSelect.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = h;
+                option2.textContent = hourStr + '時';
+                endHourSelect.appendChild(option2);
+            }
+        }
+
+        // デフォルト日時を設定（3時間後）
+        function setDefaultDateTime() {
+            const now = new Date();
+            now.setHours(now.getHours() + 3);
+            
+            document.getElementById('startDate').value = formatDateInput(now);
+            document.getElementById('startHour').value = now.getHours();
+            
+            // 終了日時は開始の1時間後
+            const endTime = new Date(now);
+            endTime.setHours(endTime.getHours() + 1);
+            document.getElementById('endDate').value = formatDateInput(endTime);
+            document.getElementById('endHour').value = endTime.getHours();
+        }
+
+        // 日付をinput[type=date]形式にフォーマット
+        function formatDateInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // イベントリスナー設定
+        function setupEventListeners() {
+            // 開始日時変更時に終了日時を検証・調整
+            document.getElementById('startDate').addEventListener('change', validateAndAdjustEndDateTime);
+            document.getElementById('startHour').addEventListener('change', validateAndAdjustEndDateTime);
+            
+            // 終了日時変更時に検証
+            document.getElementById('endDate').addEventListener('change', validateEndDateTime);
+            document.getElementById('endHour').addEventListener('change', validateEndDateTime);
+            
+            // 入力変更時にプレビュー更新
+            ['startDate', 'startHour', 'endDate', 'endHour', 'manageNumbers'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updatePreview);
+                document.getElementById(id).addEventListener('input', updatePreview);
+            });
+        }
+
+        // 開始日時を取得
+        function getStartDateTime() {
+            const date = document.getElementById('startDate').value;
+            const hour = parseInt(document.getElementById('startHour').value);
+            if (!date) return null;
+            return new Date(date + 'T' + String(hour).padStart(2, '0') + ':00:00');
+        }
+
+        // 終了日時を取得
+        function getEndDateTime() {
+            const date = document.getElementById('endDate').value;
+            const hour = parseInt(document.getElementById('endHour').value);
+            if (!date) return null;
+            return new Date(date + 'T' + String(hour).padStart(2, '0') + ':59:59');
+        }
+
+        // 終了日時を検証・調整（開始日時変更時）
+        function validateAndAdjustEndDateTime() {
+            const startDT = getStartDateTime();
+            const endDT = getEndDateTime();
+            
+            if (startDT && endDT && endDT <= startDT) {
+                // 終了日時を開始日時の1時間後に自動調整
+                const newEnd = new Date(startDT);
+                newEnd.setHours(newEnd.getHours() + 1);
+                document.getElementById('endDate').value = formatDateInput(newEnd);
+                document.getElementById('endHour').value = newEnd.getHours();
+            }
+            
+            hideValidationError();
+            updatePreview();
+        }
+
+        // 終了日時を検証
+        function validateEndDateTime() {
+            const startDT = getStartDateTime();
+            const endDT = getEndDateTime();
+            const noEndDate = document.getElementById('noEndDate').checked;
+            
+            if (!noEndDate && startDT && endDT && endDT <= startDT) {
+                showValidationError();
+                return false;
+            }
+            
+            hideValidationError();
+            updatePreview();
+            return true;
+        }
+
+        // バリデーションエラー表示
+        function showValidationError() {
+            document.getElementById('dateValidationError').style.display = 'block';
+        }
+
+        // バリデーションエラー非表示
+        function hideValidationError() {
+            document.getElementById('dateValidationError').style.display = 'none';
+        }
+
+        // ISO 8601形式（JST）にフォーマット - 開始時刻用（xx:00:00）
+        function formatStartToISO8601JST() {
+            const date = document.getElementById('startDate').value;
+            const hour = String(document.getElementById('startHour').value).padStart(2, '0');
+            if (!date) return null;
+            return `${date}T${hour}:00:00+09:00`;
+        }
+
+        // ISO 8601形式（JST）にフォーマット - 終了時刻用（xx:59:59）
+        function formatEndToISO8601JST() {
+            const date = document.getElementById('endDate').value;
+            const hour = String(document.getElementById('endHour').value).padStart(2, '0');
+            if (!date) return null;
+            return `${date}T${hour}:59:59+09:00`;
+        }
 
         // 店舗リストを読み込み（JSONP方式でCORS回避）
         function loadShopsJsonp() {
@@ -501,24 +680,27 @@
             return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+09:00`;
         }
 
-        // ポイント変倍率スライダー
-        document.getElementById('pointRateSlider').addEventListener('input', function() {
-            document.getElementById('pointRateValue').textContent = this.value;
-            updatePreview();
-        });
-
         // 無期限チェックボックス
         document.getElementById('noEndDate').addEventListener('change', function() {
-            document.getElementById('endDateTime').disabled = this.checked;
+            const endDateInput = document.getElementById('endDate');
+            const endHourSelect = document.getElementById('endHour');
+            
+            endDateInput.disabled = this.checked;
+            endHourSelect.disabled = this.checked;
+            
             if (this.checked) {
-                document.getElementById('endDateTime').value = '';
+                hideValidationError();
             }
             updatePreview();
         });
 
-        // 入力変更時にプレビュー更新
-        ['manageNumbers', 'startDateTime', 'endDateTime'].forEach(id => {
-            document.getElementById(id).addEventListener('input', updatePreview);
+        // 商品管理番号の入力変更
+        document.getElementById('manageNumbers').addEventListener('input', updatePreview);
+
+        // ポイント変倍率スライダー
+        document.getElementById('pointRateSlider').addEventListener('input', function() {
+            document.getElementById('pointRateValue').textContent = this.value;
+            updatePreview();
         });
 
         // 商品管理番号をパース
@@ -535,8 +717,6 @@
             const shopId = document.getElementById('shopSelect').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
-            const startDateTime = document.getElementById('startDateTime').value;
-            const endDateTime = document.getElementById('endDateTime').value;
             const noEndDate = document.getElementById('noEndDate').checked;
 
             // 商品リスト表示
@@ -555,8 +735,8 @@
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
-                        start: formatToISO8601JST(startDateTime),
-                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatToISO8601JST(endDateTime)
+                        start: formatStartToISO8601JST(),
+                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatEndToISO8601JST()
                     },
                     benefits: {
                         pointRate: pointRate
@@ -583,15 +763,13 @@
             document.getElementById('pointRateSlider').value = 2;
             document.getElementById('pointRateValue').textContent = '2';
             document.getElementById('noEndDate').checked = false;
-            document.getElementById('endDateTime').disabled = false;
-            document.getElementById('endDateTime').value = '';
+            document.getElementById('endDate').disabled = false;
+            document.getElementById('endHour').disabled = false;
             document.getElementById('statusMessage').style.display = 'none';
             document.getElementById('resultsDetail').innerHTML = '';
+            hideValidationError();
             
-            const now = new Date();
-            now.setHours(now.getHours() + 3);
-            now.setMinutes(0, 0, 0);
-            document.getElementById('startDateTime').value = formatDateTimeLocal(now);
+            setDefaultDateTime();
             
             updatePreview();
         }
@@ -601,9 +779,10 @@
             const shopId = document.getElementById('shopSelect').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
-            const startDateTime = document.getElementById('startDateTime').value;
-            const endDateTime = document.getElementById('endDateTime').value;
             const noEndDate = document.getElementById('noEndDate').checked;
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
 
             // バリデーション
             if (!shopId) {
@@ -614,12 +793,16 @@
                 showStatus('商品管理番号を入力してください', 'error');
                 return;
             }
-            if (!startDateTime) {
+            if (!startDate) {
                 showStatus('開始日時を入力してください', 'error');
                 return;
             }
-            if (!noEndDate && !endDateTime) {
+            if (!noEndDate && !endDate) {
                 showStatus('終了日時を入力するか、「終了日時を設定しない」にチェックを入れてください', 'error');
+                return;
+            }
+            if (!noEndDate && !validateEndDateTime()) {
+                showStatus('終了日時は開始日時より後に設定してください', 'error');
                 return;
             }
 
@@ -630,8 +813,8 @@
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
-                        start: formatToISO8601JST(startDateTime),
-                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatToISO8601JST(endDateTime)
+                        start: formatStartToISO8601JST(),
+                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatEndToISO8601JST()
                     },
                     benefits: {
                         pointRate: pointRate
