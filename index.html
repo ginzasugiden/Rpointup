@@ -308,6 +308,24 @@
             margin-top: 12px;
             font-size: 14px;
         }
+        .auth-status {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .auth-status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .auth-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .auth-status.loading {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
         /* 結果詳細 */
         .results-detail {
             margin-top: 16px;
@@ -334,21 +352,22 @@
         </div>
         
         <div class="content">
-            <!-- 店舗選択 -->
+            <!-- 店舗認証 -->
             <div class="shop-select-section">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>🏬 対象店舗<span class="required">*</span></label>
-                    <select id="shopSelect" onchange="onShopChange()">
-                        <option value="">-- 店舗を選択してください --</option>
-                    </select>
-                    <div id="shopInfo" class="shop-info" style="display: none;">
-                        <div class="shop-name" id="shopName"></div>
-                        <div id="shopEmail"></div>
+                <div class="form-group">
+                    <label>🔐 店舗認証</label>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>店舗ID<span class="required">*</span></label>
+                        <input type="text" id="shopId" placeholder="店舗IDを入力">
                     </div>
-                    <div id="loadingShops" class="loading-shops">
-                        店舗情報を読み込み中
+                    <div class="form-group">
+                        <label>パスワード<span class="required">*</span></label>
+                        <input type="password" id="shopPassword" placeholder="パスワードを入力">
                     </div>
                 </div>
+                <div id="authStatus" class="auth-status" style="display: none;"></div>
             </div>
 
             <!-- 商品設定 -->
@@ -441,6 +460,7 @@
         // ===========================================
 
         let shops = [];
+        let authenticatedShop = null; // 認証済み店舗情報
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -449,9 +469,6 @@
             
             // デフォルトの開始日時（3時間後）
             setDefaultDateTime();
-            
-            // 店舗リストを読み込み（JSONP方式）
-            loadShopsJsonp();
             
             // イベントリスナー設定
             setupEventListeners();
@@ -594,67 +611,17 @@
             return `${date}T${hour}:59:59+09:00`;
         }
 
-        // 店舗リストを読み込み（JSONP方式でCORS回避）
-        function loadShopsJsonp() {
-            document.getElementById('loadingShops').style.display = 'block';
-            
-            // グローバルコールバック関数
-            window.handleShopsResponse = function(data) {
-                document.getElementById('loadingShops').style.display = 'none';
-                
-                if (data.success && data.shops) {
-                    shops = data.shops;
-                    populateShopSelect();
-                } else {
-                    showStatus('店舗情報の取得に失敗しました: ' + (data.error || '不明なエラー'), 'error');
-                }
-                
-                // スクリプトタグを削除
-                const script = document.getElementById('jsonpScript');
-                if (script) script.remove();
-            };
-            
-            // JSONPリクエスト
-            const script = document.createElement('script');
-            script.id = 'jsonpScript';
-            script.src = `${GAS_WEB_APP_URL}?action=getShops&callback=handleShopsResponse`;
-            script.onerror = function() {
-                document.getElementById('loadingShops').style.display = 'none';
-                showStatus('店舗情報の取得に失敗しました。GAS URLを確認してください。', 'error');
-            };
-            document.body.appendChild(script);
+        // 認証ステータス表示
+        function showAuthStatus(message, type) {
+            const statusEl = document.getElementById('authStatus');
+            statusEl.textContent = message;
+            statusEl.className = `auth-status ${type}`;
+            statusEl.style.display = 'block';
         }
 
-        // 店舗セレクトボックスを設定
-        function populateShopSelect() {
-            const select = document.getElementById('shopSelect');
-            select.innerHTML = '<option value="">-- 店舗を選択してください --</option>';
-            
-            shops.forEach(shop => {
-                const option = document.createElement('option');
-                option.value = shop.id;
-                option.textContent = shop.sname || shop.id;
-                select.appendChild(option);
-            });
-        }
-
-        // 店舗選択時
-        function onShopChange() {
-            const shopId = document.getElementById('shopSelect').value;
-            const shopInfo = document.getElementById('shopInfo');
-            
-            if (shopId) {
-                const shop = shops.find(s => s.id === shopId);
-                if (shop) {
-                    document.getElementById('shopName').textContent = shop.sname || shop.id;
-                    document.getElementById('shopEmail').textContent = shop.email || '';
-                    shopInfo.style.display = 'block';
-                }
-            } else {
-                shopInfo.style.display = 'none';
-            }
-            
-            updatePreview();
+        // 認証ステータス非表示
+        function hideAuthStatus() {
+            document.getElementById('authStatus').style.display = 'none';
         }
 
         // 日時をdatetime-local形式にフォーマット
@@ -714,7 +681,7 @@
 
         // プレビュー更新
         function updatePreview() {
-            const shopId = document.getElementById('shopSelect').value;
+            const shopId = document.getElementById('shopId').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
@@ -731,7 +698,7 @@
 
             // プレビューJSON
             const previewData = {
-                shopId: shopId || '(未選択)',
+                shopId: shopId || '(未入力)',
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
@@ -757,8 +724,8 @@
 
         // フォームリセット
         function resetForm() {
-            document.getElementById('shopSelect').value = '';
-            document.getElementById('shopInfo').style.display = 'none';
+            document.getElementById('shopId').value = '';
+            document.getElementById('shopPassword').value = '';
             document.getElementById('manageNumbers').value = '';
             document.getElementById('pointRateSlider').value = 2;
             document.getElementById('pointRateValue').textContent = '2';
@@ -768,15 +735,18 @@
             document.getElementById('statusMessage').style.display = 'none';
             document.getElementById('resultsDetail').innerHTML = '';
             hideValidationError();
+            hideAuthStatus();
+            authenticatedShop = null;
             
             setDefaultDateTime();
             
             updatePreview();
         }
 
-        // データ送信（Google Formスタイル - iframe POST）
+        // データ送信（認証付き）
         async function submitData() {
-            const shopId = document.getElementById('shopSelect').value;
+            const shopId = document.getElementById('shopId').value.trim();
+            const shopPassword = document.getElementById('shopPassword').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
@@ -786,7 +756,11 @@
 
             // バリデーション
             if (!shopId) {
-                showStatus('店舗を選択してください', 'error');
+                showStatus('店舗IDを入力してください', 'error');
+                return;
+            }
+            if (!shopPassword) {
+                showStatus('パスワードを入力してください', 'error');
                 return;
             }
             if (manageNumbers.length === 0) {
@@ -806,10 +780,11 @@
                 return;
             }
 
-            // 送信データ
+            // 送信データ（パスワードを含める）
             const requestData = {
-                action: 'updatePointCampaign',
+                action: 'updatePointCampaignWithAuth',
                 shopId: shopId,
+                password: shopPassword,
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
@@ -853,9 +828,18 @@
                     }
                     showStatus(message, failCount > 0 ? 'error' : 'success');
                     
+                    // 認証成功を表示
+                    if (result.shopName) {
+                        showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
+                    }
+                    
                     // 詳細結果を表示
                     showResultsDetail(result.results);
                 } else {
+                    // 認証エラーの場合
+                    if (result.error && result.error.includes('認証')) {
+                        showAuthStatus(`❌ ${result.error}`, 'error');
+                    }
                     showStatus(`❌ エラー: ${result.error}`, 'error');
                 }
             } catch (error) {
