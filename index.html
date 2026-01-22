@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>楽天 商品別ポイント変倍設定</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #bf0000 0%, #8b0000 100%);
+            color: white;
+            padding: 24px 32px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 32px;
+        }
+        .form-section {
+            margin-bottom: 32px;
+        }
+        .form-section h2 {
+            font-size: 16px;
+            color: #333;
+            margin: 0 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #bf0000;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .form-group label .required {
+            color: #bf0000;
+            margin-left: 4px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group input[type="datetime-local"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #bf0000;
+            box-shadow: 0 0 0 3px rgba(191, 0, 0, 0.1);
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .form-group .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        .point-rate-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .point-rate-display input[type="range"] {
+            flex: 1;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+            border-radius: 4px;
+            outline: none;
+        }
+        .point-rate-display input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #bf0000;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .point-rate-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #bf0000;
+            min-width: 60px;
+            text-align: center;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #bf0000;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #bf0000 0%, #8b0000 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(191, 0, 0, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 32px;
+        }
+        .status-message {
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .status-message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        .status-message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        .status-message.loading {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
+        .gas-url-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .gas-url-section input {
+            font-family: monospace;
+        }
+        .preview-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 24px;
+        }
+        .preview-section h3 {
+            margin: 0 0 12px;
+            font-size: 14px;
+            color: #666;
+        }
+        .preview-section pre {
+            background: #263238;
+            color: #aed581;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin: 0;
+        }
+        .items-list {
+            margin-top: 12px;
+        }
+        .item-tag {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            margin: 4px 4px 4px 0;
+        }
+        .item-tag .remove {
+            margin-left: 8px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        .item-tag .remove:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏪 楽天 商品別ポイント変倍設定</h1>
+            <p>商品管理番号を指定してポイント変倍を一括設定</p>
+        </div>
+        
+        <div class="content">
+            <!-- GAS URL設定 -->
+            <div class="gas-url-section">
+                <div class="form-group">
+                    <label>GAS WebアプリURL<span class="required">*</span></label>
+                    <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+                    <p class="hint">Google Apps ScriptのデプロイURL（ウェブアプリとしてデプロイ）</p>
+                </div>
+            </div>
+
+            <!-- 商品設定 -->
+            <div class="form-section">
+                <h2>📦 対象商品</h2>
+                <div class="form-group">
+                    <label>商品管理番号<span class="required">*</span></label>
+                    <textarea id="manageNumbers" placeholder="商品管理番号を1行に1つずつ入力してください&#10;例:&#10;item-001&#10;item-002&#10;item-003"></textarea>
+                    <p class="hint">改行区切りで複数指定可能。スペースやカンマでも区切れます。</p>
+                </div>
+                <div id="itemsList" class="items-list"></div>
+            </div>
+
+            <!-- ポイント変倍設定 -->
+            <div class="form-section">
+                <h2>🎯 ポイント変倍設定</h2>
+                
+                <div class="form-group">
+                    <label>ポイント変倍率<span class="required">*</span></label>
+                    <div class="point-rate-display">
+                        <input type="range" id="pointRateSlider" min="1" max="20" value="2">
+                        <div class="point-rate-value"><span id="pointRateValue">2</span>倍</div>
+                    </div>
+                    <p class="hint">1〜20倍の範囲で設定（店舗負担ポイント）</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>開始日時<span class="required">*</span></label>
+                        <input type="datetime-local" id="startDateTime">
+                        <p class="hint">現在時刻の2時間後〜60日後まで</p>
+                    </div>
+                    <div class="form-group">
+                        <label>終了日時</label>
+                        <input type="datetime-local" id="endDateTime">
+                        <p class="hint">空欄の場合は無期限</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="noEndDate">
+                        <label for="noEndDate" style="margin: 0; font-weight: normal;">終了日時を設定しない（無期限）</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- プレビュー -->
+            <div class="preview-section">
+                <h3>📋 送信データプレビュー</h3>
+                <pre id="previewJson">{}</pre>
+            </div>
+
+            <!-- ステータスメッセージ -->
+            <div id="statusMessage" class="status-message"></div>
+
+            <!-- ボタン -->
+            <div class="btn-group">
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">リセット</button>
+                <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitData()">
+                    <span>🚀</span> ポイント変倍を設定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            // デフォルトの開始日時（3時間後）
+            const now = new Date();
+            now.setHours(now.getHours() + 3);
+            now.setMinutes(0, 0, 0);
+            document.getElementById('startDateTime').value = formatDateTimeLocal(now);
+            
+            // 保存されたGAS URLを復元
+            const savedUrl = localStorage.getItem('gasUrl');
+            if (savedUrl) {
+                document.getElementById('gasUrl').value = savedUrl;
+            }
+            
+            updatePreview();
+        });
+
+        // 日時をdatetime-local形式にフォーマット
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // ISO 8601形式（JST）にフォーマット
+        function formatToISO8601JST(dateTimeLocalValue) {
+            if (!dateTimeLocalValue) return null;
+            const date = new Date(dateTimeLocalValue);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+09:00`;
+        }
+
+        // ポイント変倍率スライダー
+        document.getElementById('pointRateSlider').addEventListener('input', function() {
+            document.getElementById('pointRateValue').textContent = this.value;
+            updatePreview();
+        });
+
+        // 無期限チェックボックス
+        document.getElementById('noEndDate').addEventListener('change', function() {
+            document.getElementById('endDateTime').disabled = this.checked;
+            if (this.checked) {
+                document.getElementById('endDateTime').value = '';
+            }
+            updatePreview();
+        });
+
+        // 入力変更時にプレビュー更新
+        ['manageNumbers', 'startDateTime', 'endDateTime', 'gasUrl'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        // 商品管理番号をパース
+        function parseManageNumbers(text) {
+            if (!text.trim()) return [];
+            return text
+                .split(/[\n,\s]+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+        }
+
+        // プレビュー更新
+        function updatePreview() {
+            const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
+            const pointRate = parseInt(document.getElementById('pointRateSlider').value);
+            const startDateTime = document.getElementById('startDateTime').value;
+            const endDateTime = document.getElementById('endDateTime').value;
+            const noEndDate = document.getElementById('noEndDate').checked;
+
+            // 商品リスト表示
+            const itemsList = document.getElementById('itemsList');
+            if (manageNumbers.length > 0) {
+                itemsList.innerHTML = manageNumbers.map(num => 
+                    `<span class="item-tag">${num}</span>`
+                ).join('');
+            } else {
+                itemsList.innerHTML = '';
+            }
+
+            // プレビューJSON
+            const previewData = {
+                manageNumbers: manageNumbers,
+                pointCampaign: {
+                    applicablePeriod: {
+                        start: formatToISO8601JST(startDateTime),
+                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatToISO8601JST(endDateTime)
+                    },
+                    benefits: {
+                        pointRate: pointRate
+                    }
+                }
+            };
+
+            document.getElementById('previewJson').textContent = JSON.stringify(previewData, null, 2);
+        }
+
+        // ステータスメッセージ表示
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        // フォームリセット
+        function resetForm() {
+            document.getElementById('manageNumbers').value = '';
+            document.getElementById('pointRateSlider').value = 2;
+            document.getElementById('pointRateValue').textContent = '2';
+            document.getElementById('noEndDate').checked = false;
+            document.getElementById('endDateTime').disabled = false;
+            document.getElementById('endDateTime').value = '';
+            document.getElementById('statusMessage').style.display = 'none';
+            
+            const now = new Date();
+            now.setHours(now.getHours() + 3);
+            now.setMinutes(0, 0, 0);
+            document.getElementById('startDateTime').value = formatDateTimeLocal(now);
+            
+            updatePreview();
+        }
+
+        // データ送信
+        async function submitData() {
+            const gasUrl = document.getElementById('gasUrl').value.trim();
+            const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
+            const pointRate = parseInt(document.getElementById('pointRateSlider').value);
+            const startDateTime = document.getElementById('startDateTime').value;
+            const endDateTime = document.getElementById('endDateTime').value;
+            const noEndDate = document.getElementById('noEndDate').checked;
+
+            // バリデーション
+            if (!gasUrl) {
+                showStatus('GAS WebアプリURLを入力してください', 'error');
+                return;
+            }
+            if (manageNumbers.length === 0) {
+                showStatus('商品管理番号を入力してください', 'error');
+                return;
+            }
+            if (!startDateTime) {
+                showStatus('開始日時を入力してください', 'error');
+                return;
+            }
+            if (!noEndDate && !endDateTime) {
+                showStatus('終了日時を入力するか、「終了日時を設定しない」にチェックを入れてください', 'error');
+                return;
+            }
+
+            // GAS URLを保存
+            localStorage.setItem('gasUrl', gasUrl);
+
+            // 送信データ
+            const requestData = {
+                manageNumbers: manageNumbers,
+                pointCampaign: {
+                    applicablePeriod: {
+                        start: formatToISO8601JST(startDateTime),
+                        end: noEndDate ? "9999-12-31T23:59:59+09:00" : formatToISO8601JST(endDateTime)
+                    },
+                    benefits: {
+                        pointRate: pointRate
+                    }
+                }
+            };
+
+            // 送信
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            showStatus('送信中...', 'loading');
+
+            try {
+                const response = await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                // no-corsモードではレスポンスが読めないため、成功とみなす
+                showStatus(`✅ リクエストを送信しました（${manageNumbers.length}件）。GAS側のログを確認してください。`, 'success');
+            } catch (error) {
+                showStatus(`❌ エラー: ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
