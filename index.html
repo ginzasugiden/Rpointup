@@ -796,10 +796,34 @@
             document.getElementById('endHour').addEventListener('change', validateEndDateTime);
             
             // 入力変更時にプレビュー更新
-            ['startDate', 'startHour', 'endDate', 'endHour', 'manageNumbers'].forEach(id => {
+            ['startDate', 'startHour', 'endDate', 'endHour'].forEach(id => {
                 document.getElementById(id).addEventListener('change', updatePreview);
                 document.getElementById(id).addEventListener('input', updatePreview);
             });
+            
+            // 店舗ID/パスワード入力時に検索ボタンを有効化
+            document.getElementById('shopId').addEventListener('input', checkAuthInputs);
+            document.getElementById('shopPassword').addEventListener('input', checkAuthInputs);
+            
+            // Enterキーで検索
+            document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchItems();
+                }
+            });
+        }
+        
+        // 店舗ID/パスワードが入力されているかチェック
+        function checkAuthInputs() {
+            const shopId = document.getElementById('shopId').value.trim();
+            const shopPassword = document.getElementById('shopPassword').value;
+            
+            if (shopId && shopPassword) {
+                enableSearch();
+            } else {
+                disableSearch();
+            }
+            updatePreview();
         }
 
         // 開始日時を取得
