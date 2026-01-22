@@ -205,14 +205,29 @@
             color: #1565c0;
             border: 1px solid #90caf9;
         }
-        .gas-url-section {
-            background: #f8f9fa;
+        .shop-select-section {
+            background: #fff8e1;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 24px;
+            border: 2px solid #ffcc02;
         }
-        .gas-url-section input {
-            font-family: monospace;
+        .shop-select-section select {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .shop-info {
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        .shop-info .shop-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 15px;
         }
         .preview-section {
             background: #f8f9fa;
@@ -246,13 +261,25 @@
             font-size: 12px;
             margin: 4px 4px 4px 0;
         }
-        .item-tag .remove {
-            margin-left: 8px;
-            cursor: pointer;
-            opacity: 0.7;
+        .loading-shops {
+            text-align: center;
+            padding: 20px;
+            color: #666;
         }
-        .item-tag .remove:hover {
-            opacity: 1;
+        .loading-shops::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ccc;
+            border-top-color: #bf0000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -264,12 +291,20 @@
         </div>
         
         <div class="content">
-            <!-- GAS URL設定 -->
-            <div class="gas-url-section">
-                <div class="form-group">
-                    <label>GAS WebアプリURL<span class="required">*</span></label>
-                    <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec">
-                    <p class="hint">Google Apps ScriptのデプロイURL（ウェブアプリとしてデプロイ）</p>
+            <!-- 店舗選択 -->
+            <div class="shop-select-section">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>🏬 対象店舗<span class="required">*</span></label>
+                    <select id="shopSelect" onchange="onShopChange()">
+                        <option value="">-- 店舗を選択してください --</option>
+                    </select>
+                    <div id="shopInfo" class="shop-info" style="display: none;">
+                        <div class="shop-name" id="shopName"></div>
+                        <div id="shopEmail"></div>
+                    </div>
+                    <div id="loadingShops" class="loading-shops" style="display: none;">
+                        店舗情報を読み込み中
+                    </div>
                 </div>
             </div>
 
@@ -338,6 +373,14 @@
     </div>
 
     <script>
+        // ===========================================
+        // 設定 - ここを変更してください
+        // ===========================================
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+        // ===========================================
+
+        let shops = [];
+
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
             // デフォルトの開始日時（3時間後）
@@ -346,14 +389,64 @@
             now.setMinutes(0, 0, 0);
             document.getElementById('startDateTime').value = formatDateTimeLocal(now);
             
-            // 保存されたGAS URLを復元
-            const savedUrl = localStorage.getItem('gasUrl');
-            if (savedUrl) {
-                document.getElementById('gasUrl').value = savedUrl;
-            }
+            // 店舗リストを読み込み
+            loadShops();
             
             updatePreview();
         });
+
+        // 店舗リストを読み込み
+        async function loadShops() {
+            document.getElementById('loadingShops').style.display = 'block';
+            
+            try {
+                const response = await fetch(`${GAS_WEB_APP_URL}?action=getShops`);
+                const data = await response.json();
+                
+                if (data.success && data.shops) {
+                    shops = data.shops;
+                    populateShopSelect();
+                } else {
+                    showStatus('店舗情報の取得に失敗しました: ' + (data.error || '不明なエラー'), 'error');
+                }
+            } catch (error) {
+                showStatus('店舗情報の取得に失敗しました: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loadingShops').style.display = 'none';
+            }
+        }
+
+        // 店舗セレクトボックスを設定
+        function populateShopSelect() {
+            const select = document.getElementById('shopSelect');
+            select.innerHTML = '<option value="">-- 店舗を選択してください --</option>';
+            
+            shops.forEach(shop => {
+                const option = document.createElement('option');
+                option.value = shop.id;
+                option.textContent = shop.sname || shop.id;
+                select.appendChild(option);
+            });
+        }
+
+        // 店舗選択時
+        function onShopChange() {
+            const shopId = document.getElementById('shopSelect').value;
+            const shopInfo = document.getElementById('shopInfo');
+            
+            if (shopId) {
+                const shop = shops.find(s => s.id === shopId);
+                if (shop) {
+                    document.getElementById('shopName').textContent = shop.sname || shop.id;
+                    document.getElementById('shopEmail').textContent = shop.email || '';
+                    shopInfo.style.display = 'block';
+                }
+            } else {
+                shopInfo.style.display = 'none';
+            }
+            
+            updatePreview();
+        }
 
         // 日時をdatetime-local形式にフォーマット
         function formatDateTimeLocal(date) {
@@ -394,7 +487,7 @@
         });
 
         // 入力変更時にプレビュー更新
-        ['manageNumbers', 'startDateTime', 'endDateTime', 'gasUrl'].forEach(id => {
+        ['manageNumbers', 'startDateTime', 'endDateTime'].forEach(id => {
             document.getElementById(id).addEventListener('input', updatePreview);
         });
 
@@ -409,6 +502,7 @@
 
         // プレビュー更新
         function updatePreview() {
+            const shopId = document.getElementById('shopSelect').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const startDateTime = document.getElementById('startDateTime').value;
@@ -427,6 +521,7 @@
 
             // プレビューJSON
             const previewData = {
+                shopId: shopId || '(未選択)',
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
@@ -452,6 +547,8 @@
 
         // フォームリセット
         function resetForm() {
+            document.getElementById('shopSelect').value = '';
+            document.getElementById('shopInfo').style.display = 'none';
             document.getElementById('manageNumbers').value = '';
             document.getElementById('pointRateSlider').value = 2;
             document.getElementById('pointRateValue').textContent = '2';
@@ -470,7 +567,7 @@
 
         // データ送信
         async function submitData() {
-            const gasUrl = document.getElementById('gasUrl').value.trim();
+            const shopId = document.getElementById('shopSelect').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const startDateTime = document.getElementById('startDateTime').value;
@@ -478,8 +575,8 @@
             const noEndDate = document.getElementById('noEndDate').checked;
 
             // バリデーション
-            if (!gasUrl) {
-                showStatus('GAS WebアプリURLを入力してください', 'error');
+            if (!shopId) {
+                showStatus('店舗を選択してください', 'error');
                 return;
             }
             if (manageNumbers.length === 0) {
@@ -495,11 +592,10 @@
                 return;
             }
 
-            // GAS URLを保存
-            localStorage.setItem('gasUrl', gasUrl);
-
             // 送信データ
             const requestData = {
+                action: 'updatePointCampaign',
+                shopId: shopId,
                 manageNumbers: manageNumbers,
                 pointCampaign: {
                     applicablePeriod: {
@@ -518,17 +614,31 @@
             showStatus('送信中...', 'loading');
 
             try {
-                const response = await fetch(gasUrl, {
+                const response = await fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(requestData)
                 });
 
-                // no-corsモードではレスポンスが読めないため、成功とみなす
-                showStatus(`✅ リクエストを送信しました（${manageNumbers.length}件）。GAS側のログを確認してください。`, 'success');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const successCount = result.results.filter(r => r.success).length;
+                    const failCount = result.results.filter(r => !r.success).length;
+                    
+                    let message = `✅ 処理完了: 成功 ${successCount}件`;
+                    if (failCount > 0) {
+                        message += `, 失敗 ${failCount}件`;
+                    }
+                    showStatus(message, failCount > 0 ? 'error' : 'success');
+                    
+                    // 詳細をコンソールに出力
+                    console.log('処理結果:', result.results);
+                } else {
+                    showStatus(`❌ エラー: ${result.error}`, 'error');
+                }
             } catch (error) {
                 showStatus(`❌ エラー: ${error.message}`, 'error');
             } finally {
