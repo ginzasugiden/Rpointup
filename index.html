@@ -281,6 +281,22 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        /* 結果詳細 */
+        .results-detail {
+            margin-top: 16px;
+            font-size: 13px;
+        }
+        .results-detail .result-item {
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+        .results-detail .result-item.success {
+            background: #e8f5e9;
+        }
+        .results-detail .result-item.error {
+            background: #ffebee;
+        }
     </style>
 </head>
 <body>
@@ -302,7 +318,7 @@
                         <div class="shop-name" id="shopName"></div>
                         <div id="shopEmail"></div>
                     </div>
-                    <div id="loadingShops" class="loading-shops" style="display: none;">
+                    <div id="loadingShops" class="loading-shops">
                         店舗情報を読み込み中
                     </div>
                 </div>
@@ -361,6 +377,7 @@
 
             <!-- ステータスメッセージ -->
             <div id="statusMessage" class="status-message"></div>
+            <div id="resultsDetail" class="results-detail"></div>
 
             <!-- ボタン -->
             <div class="btn-group">
@@ -372,11 +389,14 @@
         </div>
     </div>
 
+    <!-- 隠しiframe（POST用） -->
+    <iframe id="submitFrame" name="submitFrame" style="display:none;"></iframe>
+
     <script>
         // ===========================================
         // 設定 - ここを変更してください
         // ===========================================
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZL7lUtYmccXj5q5-YW_CI7W_x2QQp88NB6JDiD8cKC3-KJRUy2y3g_InBTdEw/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZl7IUtYmccXj5a5-YW_Cl7W_x20p88NB6JDl8cKC3-KjRuGN8Ew8j0E0Y3Jcw/exec';
         // ===========================================
 
         let shops = [];
@@ -389,19 +409,19 @@
             now.setMinutes(0, 0, 0);
             document.getElementById('startDateTime').value = formatDateTimeLocal(now);
             
-            // 店舗リストを読み込み
-            loadShops();
+            // 店舗リストを読み込み（JSONP方式）
+            loadShopsJsonp();
             
             updatePreview();
         });
 
-        // 店舗リストを読み込み
-        async function loadShops() {
+        // 店舗リストを読み込み（JSONP方式でCORS回避）
+        function loadShopsJsonp() {
             document.getElementById('loadingShops').style.display = 'block';
             
-            try {
-                const response = await fetch(`${GAS_WEB_APP_URL}?action=getShops`);
-                const data = await response.json();
+            // グローバルコールバック関数
+            window.handleShopsResponse = function(data) {
+                document.getElementById('loadingShops').style.display = 'none';
                 
                 if (data.success && data.shops) {
                     shops = data.shops;
@@ -409,11 +429,21 @@
                 } else {
                     showStatus('店舗情報の取得に失敗しました: ' + (data.error || '不明なエラー'), 'error');
                 }
-            } catch (error) {
-                showStatus('店舗情報の取得に失敗しました: ' + error.message, 'error');
-            } finally {
+                
+                // スクリプトタグを削除
+                const script = document.getElementById('jsonpScript');
+                if (script) script.remove();
+            };
+            
+            // JSONPリクエスト
+            const script = document.createElement('script');
+            script.id = 'jsonpScript';
+            script.src = `${GAS_WEB_APP_URL}?action=getShops&callback=handleShopsResponse`;
+            script.onerror = function() {
                 document.getElementById('loadingShops').style.display = 'none';
-            }
+                showStatus('店舗情報の取得に失敗しました。GAS URLを確認してください。', 'error');
+            };
+            document.body.appendChild(script);
         }
 
         // 店舗セレクトボックスを設定
@@ -540,7 +570,7 @@
         // ステータスメッセージ表示
         function showStatus(message, type) {
             const statusEl = document.getElementById('statusMessage');
-            statusEl.textContent = message;
+            statusEl.innerHTML = message;
             statusEl.className = `status-message ${type}`;
             statusEl.style.display = 'block';
         }
@@ -556,6 +586,7 @@
             document.getElementById('endDateTime').disabled = false;
             document.getElementById('endDateTime').value = '';
             document.getElementById('statusMessage').style.display = 'none';
+            document.getElementById('resultsDetail').innerHTML = '';
             
             const now = new Date();
             now.setHours(now.getHours() + 3);
@@ -565,7 +596,7 @@
             updatePreview();
         }
 
-        // データ送信
+        // データ送信（Google Formスタイル - iframe POST）
         async function submitData() {
             const shopId = document.getElementById('shopSelect').value;
             const manageNumbers = parseManageNumbers(document.getElementById('manageNumbers').value);
@@ -612,16 +643,21 @@
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
             showStatus('送信中...', 'loading');
+            document.getElementById('resultsDetail').innerHTML = '';
 
             try {
+                // Fetch APIでno-corsではなく、通常のリクエスト
+                // GASはリダイレクトレスポンスを返すので、それを利用
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'text/plain', // text/plainならプリフライトが発生しない
                     },
-                    body: JSON.stringify(requestData)
+                    body: JSON.stringify(requestData),
+                    redirect: 'follow'
                 });
 
+                // レスポンスがリダイレクトの場合でも、最終的なJSONを取得
                 const result = await response.json();
                 
                 if (result.success) {
@@ -634,16 +670,28 @@
                     }
                     showStatus(message, failCount > 0 ? 'error' : 'success');
                     
-                    // 詳細をコンソールに出力
-                    console.log('処理結果:', result.results);
+                    // 詳細結果を表示
+                    showResultsDetail(result.results);
                 } else {
                     showStatus(`❌ エラー: ${result.error}`, 'error');
                 }
             } catch (error) {
+                console.error('送信エラー:', error);
                 showStatus(`❌ エラー: ${error.message}`, 'error');
             } finally {
                 submitBtn.disabled = false;
             }
+        }
+
+        // 結果詳細を表示
+        function showResultsDetail(results) {
+            const detailEl = document.getElementById('resultsDetail');
+            detailEl.innerHTML = results.map(r => `
+                <div class="result-item ${r.success ? 'success' : 'error'}">
+                    ${r.success ? '✅' : '❌'} ${r.manageNumber}
+                    ${r.error ? `: ${r.error}` : ''}
+                </div>
+            `).join('');
         }
     </script>
 </body>
