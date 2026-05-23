@@ -7,6 +7,20 @@
 // 設定
 // ====================================
 
+// Phase 1.2: このサービスの識別子（account_services.service と一致させる）
+const SERVICE_ID = 'rpointup';
+
+/**
+ * Phase 1.2: チェックボックス/文字列どちらのブール表現にも対応するヘルパー
+ * Google Sheets のチェックボックス列は真偽値を返すが、テキスト 'TRUE'/'FALSE' の場合もあるため両対応。
+ */
+function toBool(v) {
+  if (v === true) return true;
+  if (typeof v === 'number') return v === 1;
+  if (typeof v === 'string') return v.trim().toUpperCase() === 'TRUE';
+  return false; // 空欄・null・想定外 → false（安全側）
+}
+
 function getSpreadsheetId() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('SPREADSHEET_ID');
@@ -71,6 +85,75 @@ function getShopCredentials(shopId) {
 }
 
 /**
+ * Phase 1.2: Layer 1 — account_services から当該アカウントの利用権を取得
+ * 戻り値: { is_active, role, granted_at, expires_at } または null（シート未作成 / 一致行なし）
+ * 読み取りは getShopsData と同じ indexOf 方式（列順非依存）。
+ */
+function getAccountServices(id, service) {
+  const ss = SpreadsheetApp.openById(getSpreadsheetId());
+  const sheet = ss.getSheetByName('account_services');
+  if (!sheet) return null; // シート未作成 → null（呼び出し側で fail-open 判断）
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const serviceIdx = headers.indexOf('service');
+  const isActiveIdx = headers.indexOf('is_active');
+  const roleIdx = headers.indexOf('role');
+  const grantedIdx = headers.indexOf('granted_at');
+  const expiresIdx = headers.indexOf('expires_at');
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (String(row[idIdx]) === String(id) && String(row[serviceIdx]) === String(service)) {
+      return {
+        is_active: toBool(row[isActiveIdx]),
+        role: row[roleIdx] || null,
+        granted_at: row[grantedIdx] || null,
+        expires_at: row[expiresIdx] || null
+      };
+    }
+  }
+  return null; // 一致行なし
+}
+
+/**
+ * Phase 1.2: Layer 2 — service_rpointup から機能フラグ・固有設定を取得
+ * 戻り値: { feature_item_point, feature_shop_point, rms_login_id, rms_login_pw } または null（シート未作成 / 行なし）
+ * 注意: rms_login_id / rms_login_pw は内部利用専用。features にもレスポンスにも絶対に含めない。
+ */
+function getServiceRpointup(id) {
+  const ss = SpreadsheetApp.openById(getSpreadsheetId());
+  const sheet = ss.getSheetByName('service_rpointup');
+  if (!sheet) return null;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const itemIdx = headers.indexOf('feature_item_point');
+  const shopIdx = headers.indexOf('feature_shop_point');
+  const loginIdIdx = headers.indexOf('rms_login_id');
+  const loginPwIdx = headers.indexOf('rms_login_pw');
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (String(row[idIdx]) === String(id)) {
+      return {
+        feature_item_point: toBool(row[itemIdx]),
+        feature_shop_point: toBool(row[shopIdx]),
+        rms_login_id: row[loginIdIdx] || '',
+        rms_login_pw: row[loginPwIdx] || ''
+      };
+    }
+  }
+  return null; // 行なし → 呼び出し側で全機能 FALSE 扱い（安全側）
+}
+
+/**
  * 店舗認証（ID + パスワード）
  */
 function authenticateShop(shopId, password) {
@@ -78,7 +161,8 @@ function authenticateShop(shopId, password) {
   const shop = shops.find(s => s.id === shopId);
   
   if (!shop) {
-    return { success: false, error: '店舗IDが見つかりません' };
+    // Phase 1.2: id 不一致でも pw 不一致と同一文言に統一（どちらが誤りか漏らさない）
+    return { success: false, error: '認証に失敗しました。IDまたはパスワードが正しくありません' };
   }
   
   // パスワード検証（pw列）- BASE64デコードに対応
@@ -105,8 +189,34 @@ function authenticateShop(shopId, password) {
   if (!shop.serviceSecret || !shop.licenseKey) {
     return { success: false, error: 'API認証情報が設定されていません' };
   }
-  
-  return { success: true, shop: shop };
+
+  // Phase 1.2 保留: flag / expiry / payment_status のチェックは入れない。
+  // 特に expiry は楽天APIキー有効期限であり、ログインゲートにするのは誤り。
+
+  // Phase 1.2: Layer 1 — account_services で利用権を確認
+  const access = getAccountServices(shopId, SERVICE_ID);
+  if (access) {
+    if (access.is_active !== true) {
+      return { success: false, error: 'このサービスの利用権がありません' };
+    }
+    if (access.expires_at) {
+      const exp = (access.expires_at instanceof Date) ? access.expires_at : new Date(access.expires_at);
+      if (!isNaN(exp.getTime()) && exp < new Date()) {
+        return { success: false, error: 'ご契約が無効です。ご契約状況をご確認ください' };
+      }
+    }
+  }
+  // Phase 1.2: fail-open（既存ユーザー保護）。
+  // account_services 整備後、fail-closed へ移行する想定（access == null は通過）
+
+  // Phase 1.2: Layer 2 — service_rpointup から機能フラグを取得し features を構築
+  const svc = getServiceRpointup(shopId);
+  const features = {
+    item_point: svc ? svc.feature_item_point : false, // 行なし → false（安全側）
+    shop_point: svc ? svc.feature_shop_point : false
+  };
+
+  return { success: true, shop: shop, features: features, role: access ? access.role : null };
 }
 
 function getAuthHeader(shop) {
@@ -236,6 +346,7 @@ function processPost(e) {
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
         shopName: shop.sname,
+        features: authResult.features, // Phase 1.2: 機能フラグ（助言情報。既存項目は不変）
         items: searchResult.items,
         totalCount: searchResult.totalCount,
         nextCursorMark: searchResult.nextCursorMark
@@ -261,23 +372,74 @@ function processPost(e) {
       }
       
       const shop = authResult.shop;
-      
+
+      // Phase 1.2: feature_item_point は助言情報として返却（実行ゲートは UI レベル＝フロントで実施）。
+      //            商品別は従来どおり実行する（後方互換を完全維持）。
+
+      // Phase 1.2: 商品別の変倍率を 1〜20 に制限（フロントと二重でバリデーション）
+      const benefits = (requestData.pointCampaign && requestData.pointCampaign.benefits) || {};
+      const pointRate = Number(benefits.pointRate);
+      if (!(pointRate >= 1 && pointRate <= 20)) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: '変倍率は1〜20の範囲で指定してください'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
       const results = updatePointCampaignBatch(
         shop,
         requestData.manageNumbers,
         requestData.pointCampaign
       );
-      
+
       logResults(requestData.shopId, results);
-      
+
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
         shopId: requestData.shopId,
         shopName: shop.sname,
+        features: authResult.features, // Phase 1.2: 機能フラグ（助言情報。既存項目は不変）
         results: results
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
+    // Phase 1.2: 店舗別ポイント変倍（暫定スタブ。本実装は Phase 2 / Python RPA 連携）
+    if (action === 'updateShopPointCampaign') {
+      if (!requestData.shopId) {
+        throw new Error('店舗IDが指定されていません');
+      }
+      if (!requestData.password) {
+        throw new Error('パスワードが指定されていません');
+      }
+
+      // 認証（Layer 0/1/2）
+      const authResult = authenticateShop(requestData.shopId, requestData.password);
+      if (!authResult.success) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: authResult.error
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const features = authResult.features;
+
+      // Phase 1.2: 機能フラグ確認（feature_shop_point=TRUE が必須）
+      if (!features || features.shop_point !== true) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'この機能は現在のプランではご利用いただけません',
+          features: features
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      // Phase 1.2: 店舗別は未実装。Phase 2 で Python RPA による本実装を行う。
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: '店舗別ポイント変倍は現在ご利用いただけません。お問い合わせください。',
+        features: features
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // 従来のポイント変倍設定（認証なし）- 後方互換性のため残す
     if (action === 'updatePointCampaign') {
       if (!requestData.shopId) {
@@ -564,4 +726,88 @@ function testPasswordAuth() {
   } catch (error) {
     console.error('エラー:', error.message);
   }
+}
+
+// ====================================
+// Phase 1.2 テスト用関数
+// ====================================
+
+/**
+ * Phase 1.2 テスト: account_services 読み取り（Layer 1）
+ */
+function testAccountServices() {
+  console.log('--- testAccountServices ---');
+  const found = getAccountServices('tokyoflower', SERVICE_ID);
+  console.log('tokyoflower/' + SERVICE_ID + ':', JSON.stringify(found)); // {is_active, role, granted_at, expires_at} 期待
+  const none = getAccountServices('___notexist___', SERVICE_ID);
+  console.log('存在しないid:', none, none === null ? 'OK(null)' : 'NG'); // null 期待
+}
+
+/**
+ * Phase 1.2 テスト: service_rpointup 読み取り（Layer 2）
+ */
+function testServiceRpointup() {
+  console.log('--- testServiceRpointup ---');
+  const svc = getServiceRpointup('tokyoflower');
+  console.log('tokyoflower:', JSON.stringify({
+    feature_item_point: svc ? svc.feature_item_point : null,
+    feature_shop_point: svc ? svc.feature_shop_point : null,
+    has_rms_login: svc ? !!svc.rms_login_id : null // 秘密は出さず有無のみ
+  })); // item=true, shop=false 期待（サンプル行）
+  const none = getServiceRpointup('___notexist___');
+  console.log('存在しないid:', none, none === null ? 'OK(null)' : 'NG'); // null 期待
+}
+
+/**
+ * Phase 1.2 テスト: 拡張 authenticateShop（Layer 0/1/2 + features）
+ * 注意: 実行時に testPassword へデコード後パスワードを設定してから実行する。
+ */
+function testAuthenticationWithFeatures() {
+  console.log('--- testAuthenticationWithFeatures ---');
+  const testShopId = 'tokyoflower';
+  const testPassword = ''; // 実行時に設定
+  const result = authenticateShop(testShopId, testPassword);
+  console.log('success:', result.success);
+  if (result.success) {
+    console.log('shopName:', result.shop.sname);
+    console.log('features:', JSON.stringify(result.features)); // {item_point:true, shop_point:false} 期待
+    console.log('role:', result.role);
+  } else {
+    console.log('error:', result.error);
+  }
+}
+
+/**
+ * Phase 1.2 テスト: toBool ヘルパー単体
+ */
+function testToBool() {
+  console.log('--- testToBool ---');
+  const cases = [
+    [true, true], [false, false],
+    ['TRUE', true], ['true', true], ['FALSE', false], ['', false],
+    [1, true], [0, false], [null, false], [undefined, false]
+  ];
+  cases.forEach(c => {
+    const got = toBool(c[0]);
+    console.log('toBool(' + JSON.stringify(c[0]) + ') = ' + got + ' ' + (got === c[1] ? 'OK' : 'NG(期待:' + c[1] + ')'));
+  });
+}
+
+/**
+ * Phase 1.2 テスト: 後方互換の確認
+ * - 行のない id でも Layer 1 は fail-open（null → 通過対象）
+ * - 行のない id は features 全 false（安全側）
+ */
+function testBackwardCompat() {
+  console.log('--- testBackwardCompat ---');
+  const acc = getAccountServices('___notexist___', SERVICE_ID);
+  console.log('Layer1 行なし → null（fail-open対象）:', acc === null ? 'OK' : 'NG');
+  const svc = getServiceRpointup('___notexist___');
+  console.log('Layer2 行なし → null（features全false対象）:', svc === null ? 'OK' : 'NG');
+  const features = {
+    item_point: svc ? svc.feature_item_point : false,
+    shop_point: svc ? svc.feature_shop_point : false
+  };
+  console.log('既定 features:', JSON.stringify(features),
+    (features.item_point === false && features.shop_point === false) ? 'OK' : 'NG');
 }
