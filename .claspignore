@@ -1,0 +1,30 @@
+# GAS に送信不要のファイル群
+
+# GitHub Pages 用フロントエンド（GASとは別管理）
+index.html
+
+# ドキュメント類
+*.md
+CLAUDE.md
+ARCHITECTURE.md
+CLAUDE_INSTRUCTIONS.md
+
+# Git・OS・エディタ関連
+.git/**
+.gitignore
+.github/**
+.vscode/**
+.claude/**
+
+# GitHub Pages 設定
+CNAME
+
+# clasp 設定（GAS 内には不要）
+.clasp.json
+.claspignore
+
+# 一般的な不要ファイル
+node_modules/**
+*.log
+Thumbs.db
+.DS_Store
