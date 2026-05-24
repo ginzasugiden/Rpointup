@@ -144,6 +144,54 @@
             height: 20px;
             accent-color: #bf0000;
         }
+        /* 出力先トグル（商品別/店舗別） B-3 */
+        .output-target-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .output-target-group .output-target-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .output-target-group .output-target-option input[type="radio"] {
+            accent-color: #bf0000;
+            width: 18px;
+            height: 18px;
+        }
+        .output-target-group .output-target-option:has(input:checked) {
+            border-color: #bf0000;
+            background: #fff5f5;
+        }
+        .output-target-group .output-target-option:has(input:disabled) {
+            opacity: 0.55;
+            cursor: not-allowed;
+            background: #f5f5f5;
+        }
+        .output-target-group .output-target-option small {
+            color: #888;
+            font-weight: normal;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+        .item-disabled-notice {
+            background: #fff3e0;
+            color: #e65100;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
         .btn {
             display: inline-flex;
             align-items: center;
@@ -648,7 +696,26 @@
             <!-- ポイント変倍設定 -->
             <div class="form-section">
                 <h2>🎯 ポイント変倍設定</h2>
-                
+
+                <!-- 出力先（商品別/店舗別 択一） B-3/B-2/D -->
+                <div class="form-group">
+                    <label>出力先<span class="required">*</span></label>
+                    <div class="output-target-group" id="outputTargetGroup">
+                        <label class="output-target-option">
+                            <input type="radio" name="outputTarget" value="item" checked>
+                            <span>📦 商品別</span>
+                        </label>
+                        <label class="output-target-option" id="shopTargetOption">
+                            <input type="radio" name="outputTarget" value="shop" disabled>
+                            <span>🏪 店舗別<small>（Phase2 提供予定）</small></span>
+                        </label>
+                    </div>
+                    <p class="hint" id="outputTargetHint">商品別: 選択した商品にポイント変倍を設定します（変倍率1〜20倍）。</p>
+                    <div class="item-disabled-notice" id="itemDisabledNotice" style="display: none;">
+                        ⚠️ このプランでは商品別ポイント変倍をご利用いただけません。
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>ポイント変倍率<span class="required">*</span></label>
                     <div class="point-rate-display">
@@ -734,7 +801,10 @@
             
             // イベントリスナー設定
             setupEventListeners();
-            
+
+            // B-2: 出力先トグルの初期状態（未認証）
+            applyFeatureGating();
+
             updatePreview();
         });
 
@@ -800,7 +870,12 @@
             // 店舗ID/パスワード入力時に検索ボタンを有効化
             document.getElementById('shopId').addEventListener('input', checkAuthInputs);
             document.getElementById('shopPassword').addEventListener('input', checkAuthInputs);
-            
+
+            // B-3/B-4: 出力先トグル変更時にレンジ・プレビューを更新
+            document.querySelectorAll('input[name="outputTarget"]').forEach(radio => {
+                radio.addEventListener('change', updateOutputTargetUI);
+            });
+
             // Enterキーで検索
             document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
@@ -946,6 +1021,63 @@
         }
 
         // ===========================================
+        // B-2/B-3/B-4/D: 出力先（商品別/店舗別）
+        // ===========================================
+
+        // 現在の出力先を取得（'item' | 'shop'）
+        function getOutputTarget() {
+            const checked = document.querySelector('input[name="outputTarget"]:checked');
+            return checked ? checked.value : 'item';
+        }
+
+        // B-4: 出力先に応じて変倍率レンジ・ヒント・プレビューを更新
+        function updateOutputTargetUI() {
+            const target = getOutputTarget();
+            const slider = document.getElementById('pointRateSlider');
+            const hint = document.getElementById('outputTargetHint');
+            if (target === 'shop') {
+                slider.min = 2; // 店舗別は 2〜20倍（RMS仕様で 1倍 は選択不可）
+                if (parseInt(slider.value) < 2) {
+                    slider.value = 2;
+                    document.getElementById('pointRateValue').textContent = '2';
+                }
+                hint.textContent = '店舗別: 店舗の全商品に適用します（変倍率2〜20倍）。商品別設定がある商品は商品別が優先されます。';
+            } else {
+                slider.min = 1; // 商品別は 1〜20倍（1倍は店舗別キャンセル戦略）
+                hint.textContent = '商品別: 選択した商品にポイント変倍を設定します（変倍率1〜20倍）。';
+            }
+            updatePreview();
+        }
+
+        // B-2/D: features に応じて出力先トグルの活殺・表示を制御
+        // ※ 1.3c では店舗別は Phase2 まで常に disabled（「Phase2 提供予定」）
+        function applyFeatureGating() {
+            const features = authenticatedShop ? authenticatedShop.features : null;
+
+            // 商品別: 未認証は許可。認証後は features.item_point に従う
+            const itemAllowed = !features || features.item_point;
+            const itemRadio = document.querySelector('input[name="outputTarget"][value="item"]');
+            if (itemRadio) itemRadio.disabled = !itemAllowed;
+            const notice = document.getElementById('itemDisabledNotice');
+            if (notice) notice.style.display = itemAllowed ? 'none' : 'block';
+
+            // 店舗別: 1.3c では常に disabled（Phase2）。
+            //   未認証 / shop_point=true → 表示（disabled）, shop_point=false → 非表示
+            const shopOption = document.getElementById('shopTargetOption');
+            const shopRadio = document.querySelector('input[name="outputTarget"][value="shop"]');
+            const hideShop = !!(features && !features.shop_point);
+            if (shopOption) shopOption.style.display = hideShop ? 'none' : '';
+            if (shopRadio) shopRadio.disabled = true; // Phase 2 まで常に無効
+
+            // 選択中の出力先が無効/非表示なら商品別へフォールバック
+            const checked = document.querySelector('input[name="outputTarget"]:checked');
+            if (!checked || (checked.value === 'shop' && (hideShop || shopRadio.disabled))) {
+                if (itemRadio) itemRadio.checked = true;
+            }
+            updateOutputTargetUI();
+        }
+
+        // ===========================================
         // 商品検索機能
         // ===========================================
 
@@ -997,6 +1129,7 @@
                         shopName: result.shopName,
                         features: normalizeFeatures(result.features)
                     };
+                    applyFeatureGating(); // B-2: features に応じて出力先トグルを更新
                     enableSearch();
                     showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
 
@@ -1217,9 +1350,13 @@
             const manageNumbers = Array.from(selectedItems.keys()); // 選択済み商品から取得
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
+            const outputTarget = getOutputTarget(); // B-3
+            const action = outputTarget === 'shop' ? 'updateShopPointCampaign' : 'updatePointCampaignWithAuth';
 
-            // プレビューJSON
+            // プレビューJSON（action は実際に送る値。outputTarget は参考表示）
             const previewData = {
+                action: action,
+                outputTarget: outputTarget,
                 shopId: shopId || '(未入力)',
                 manageNumbers: manageNumbers,
                 pointCampaign: {
@@ -1262,7 +1399,12 @@
             hideAuthStatus();
             hideSearchStatus();
             authenticatedShop = null;
-            
+
+            // B-3: 出力先を商品別に戻し、未認証状態の出力先トグルへ
+            const itemRadio = document.querySelector('input[name="outputTarget"][value="item"]');
+            if (itemRadio) itemRadio.checked = true;
+            applyFeatureGating();
+
             // 選択済み商品をクリア
             selectedItems.clear();
             updateSelectedItemsDisplay();
@@ -1282,7 +1424,9 @@
             const manageNumbers = Array.from(selectedItems.keys()); // 選択済み商品から取得
             const pointRate = parseInt(document.getElementById('pointRateSlider').value);
             const noEndDate = document.getElementById('noEndDate').checked;
-            
+            const outputTarget = getOutputTarget(); // B-3: 'item' | 'shop'
+            const isShop = outputTarget === 'shop';
+
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
 
@@ -1295,7 +1439,8 @@
                 showStatus('パスワードを入力してください', 'error');
                 return;
             }
-            if (manageNumbers.length === 0) {
+            // B-3: 商品選択は商品別のみ必須（店舗別は店舗全体が対象）
+            if (!isShop && manageNumbers.length === 0) {
                 showStatus('商品を選択してください', 'error');
                 return;
             }
@@ -1312,9 +1457,9 @@
                 return;
             }
 
-            // 送信データ（パスワードを含める）
+            // 送信データ（パスワードを含める）。B-3: 出力先で action を分岐
             const requestData = {
-                action: 'updatePointCampaignWithAuth',
+                action: isShop ? 'updateShopPointCampaign' : 'updatePointCampaignWithAuth',
                 shopId: shopId,
                 password: shopPassword,
                 manageNumbers: manageNumbers,
@@ -1366,6 +1511,7 @@
                             shopName: result.shopName,
                             features: normalizeFeatures(result.features)
                         };
+                        applyFeatureGating(); // B-2
                         showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
                     }
 
