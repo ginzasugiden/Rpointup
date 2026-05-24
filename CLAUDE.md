@@ -68,7 +68,7 @@ items.patch のドキュメントには明示されていない。
 
 ## リポジトリ構成
 - `index.html` — フロントエンド全部（HTML/CSS/JS一体型、約1384行）
-- `コード.js` — **GAS本体（566行）。clasp clone で取得しリポジトリ管理下**。
+- `コード.js` — **GAS本体（812行。Phase 1.2 で Layer 0/1/2 認証認可・`features`・店舗別スタブを追加し +246行）。clasp clone で取得しリポジトリ管理下**。
   - ⚠️ ファイル名は日本語ロケールのデフォルト名 `コード.js`（`Code.js` ではない）。リネームは次回 push 時に GAS側ファイル名も変わるため当面そのまま。
 - `appsscript.json` — GASマニフェスト（clasp管理）
 - `.clasp.json` — GASプロジェクトリンク（scriptId）。git管理対象（機密ではない）
@@ -135,42 +135,50 @@ items.patch のドキュメントには明示されていない。
 
 ## コード.js（GAS本体）サマリ
 
-- **全体行数**: 566行
+- **全体行数**: 812行（Phase 1.2 で Layer 0/1/2 認証認可・`features`・店舗別スタブを追加し +246行）
 - **マルチテナント対応版（CORS対応）**。フロントの `action` に応じてJSONを返す。
+- **Phase 1.2 追加**: `SERVICE_ID='rpointup'`（L11）。Layer 1=`account_services`（利用権）/ Layer 2=`service_rpointup`（機能フラグ）を参照し、認証成功時に `features:{item_point, shop_point}` を返す。**シート未整備時は fail-open**（既存ユーザー保護。`コード.js:209`）。
 
-### 関数一覧と役割
+### 関数一覧と役割（★=Phase 1.2 追加/改修）
 | 関数 | 行 | 役割 |
 |------|----|------|
-| `getSpreadsheetId()` | 10 | スクリプトプロパティ `SPREADSHEET_ID` を取得（未設定なら例外） |
-| `getShopsData()` | 19 | `api_key` シート全行を読み、店舗配列を返す（列: id, licenseKey, serviceSecret, pw, sid, sname, email） |
-| `getShopCredentials(shopId)` | 58 | shopId で店舗検索しAPI認証情報を返す（後方互換用、PW検証なし） |
-| `authenticateShop(shopId, password)` | 76 | ID+パスワード認証。pw列をBASE64デコードして照合。`{success, shop\|error}` |
-| `getAuthHeader(shop)` | 112 | serviceSecret/licenseKey をデコード→`ESA base64(secret:license)` 認証ヘッダー生成 |
-| `doGet(e)` | 135 | GETエントリ → `processGet` |
-| `doPost(e)` | 143 | POSTエントリ → `processPost` |
-| `processGet(e)` | 151 | `getShops` で安全な店舗一覧。`callback` でJSONP対応 |
-| `processPost(e)` | 206 | `action` 分岐（searchItems / updatePointCampaignWithAuth / updatePointCampaign） |
-| `searchItems(shop, keyword, cursorMark)` | 322 | 楽天 items/search を呼び商品整形（hits=30, cursorMarkページネーション） |
-| `updatePointCampaignBatch(shop, manageNumbers, pointCampaign)` | 398 | 商品ごとに更新、各呼び出し間 500ms sleep、結果配列を返す |
-| `updatePointCampaign(shop, manageNumber, pointCampaign)` | 424 | items PATCH で `pointCampaign` 更新（204成功） |
-| `getItem(shop, manageNumber)` | 465 | items GET（単品取得ユーティリティ。現状未使用） |
-| `logResults(shopId, results)` | 491 | 処理結果をconsoleログ出力 |
-| `testGetShops()` | 510 | テスト: 店舗数/一覧ログ |
-| `testAuth()` | 522 | テスト: 認証ヘッダー生成確認（testShopId='tokyoflower'） |
-| `testPasswordAuth()` | 539 | テスト: pw のBASE64デコード&認証確認（テストPWハードコードあり） |
+| `toBool(v)` ★ | 17 | 文字列/真偽の正規化（TRUE/true/1 等 → boolean） |
+| `getSpreadsheetId()` | 24 | スクリプトプロパティ `SPREADSHEET_ID` を取得（未設定なら例外） |
+| `getShopsData()` | 33 | `api_key` シート全行を読み、店舗配列を返す（列: id, licenseKey, serviceSecret, pw, sid, sname, email） |
+| `getShopCredentials(shopId)` | 72 | shopId で店舗検索しAPI認証情報を返す（後方互換用、PW検証なし） |
+| `getAccountServices(id, service)` ★ | 92 | Layer 1: `account_services` から利用権 `{is_active, role, granted_at, expires_at}`。シート/行なしは null（fail-open 判断は呼出側） |
+| `getServiceRpointup(id)` ★ | 127 | Layer 2: `service_rpointup` から機能フラグ・固有設定。`rms_login_id/pw` は内部専用で features・応答に**含めない** |
+| `authenticateShop(shopId, password)` ★ | 159 | Layer 0(ID+PW)→1(利用権)→2(機能フラグ)。`{success, shop, features, role}`。pw は BASE64 デコード照合。Layer1 は fail-open |
+| `getAuthHeader(shop)` | 222 | serviceSecret/licenseKey をデコード→`ESA base64(secret:license)` 認証ヘッダー生成 |
+| `doGet(e)` | 245 | GETエントリ → `processGet` |
+| `doPost(e)` | 253 | POSTエントリ → `processPost` |
+| `processGet(e)` | 261 | `getShops` で安全な店舗一覧。`callback` でJSONP対応 |
+| `processPost(e)` ★ | 316 | `action` 分岐（searchItems / updatePointCampaignWithAuth / **updateShopPointCampaign** / updatePointCampaign） |
+| `searchItems(shop, keyword, cursorMark)` | 484 | 楽天 items/search を呼び商品整形（hits=30, cursorMarkページネーション） |
+| `updatePointCampaignBatch(shop, manageNumbers, pointCampaign)` | 560 | 商品ごとに更新、各呼び出し間 500ms sleep、結果配列を返す |
+| `updatePointCampaign(shop, manageNumber, pointCampaign)` | 586 | items PATCH で `pointCampaign` 更新（204成功） |
+| `getItem(shop, manageNumber)` | 627 | items GET（単品取得ユーティリティ。現状未使用） |
+| `logResults(shopId, results)` | 653 | 処理結果をconsoleログ出力 |
+| `testGetShops()` | 672 | テスト: 店舗数/一覧ログ |
+| `testAuth()` | 684 | テスト: 認証ヘッダー生成確認（testShopId='tokyoflower'） |
+| `testPasswordAuth()` | 701 | テスト: pw のBASE64デコード&認証確認（テストPWハードコードあり） |
+| `testAccountServices()` ★ | 738 | テスト: Layer 1（account_services）読み取り |
+| `testServiceRpointup()` ★ | 749 | テスト: Layer 2（service_rpointup）読み取り |
+| `testAuthenticationWithFeatures()` ★ | 765 | テスト: 拡張 authenticateShop（Layer0/1/2 + features） |
+| `testToBool()` ★ | 783 | テスト: toBool 正規化 |
+| `testBackwardCompat()` ★ | 801 | テスト: 行なし時 fail-open / features 全false の後方互換 |
 
 ### BASE64デコード処理の場所
-- `authenticateShop` L88–94 … pw列（`BASE64:` プレフィックス）をデコードして照合
-- `getAuthHeader` L117–122 … serviceSecret / licenseKey をデコード
-- `getAuthHeader` L124 … `Utilities.base64Encode(serviceSecret + ':' + licenseKey)` で再エンコード（認証ヘッダー生成）
-- `testPasswordAuth` L551–554 … テスト用デコード
+- `authenticateShop` L172–174 … pw列（`BASE64:` プレフィックス）をデコードして照合
+- `getAuthHeader`（L222〜）… serviceSecret / licenseKey をデコード→`Utilities.base64Encode(secret + ':' + license)` で再エンコード（認証ヘッダー生成）
+- `testPasswordAuth`（L701〜）… テスト用デコード
 - 共通実装: `Utilities.newBlob(Utilities.base64Decode(値.replace('BASE64:', ''))).getDataAsString()`
 
 ### 楽天API連携部分
 - **認証ヘッダー**: `Authorization: ESA {base64(serviceSecret:licenseKey)}`（RMS Item API）
-- **商品検索**: `searchItems` → `GET https://api.rms.rakuten.co.jp/es/2.0/items/search`（L323）。`title=`（キーワード）, `cursorMark=`, `hits=30`。200で `results[].item` を `{manageNumber, title, price, itemType}` に整形、`numFound`→totalCount、`nextCursorMark` を返す。価格は最初のvariantの `standardPrice`。
-- **ポイント変倍更新**: `updatePointCampaign` → `PATCH https://api.rms.rakuten.co.jp/es/2.0/items/manage-numbers/{manageNumber}`（L425）。payload `{ pointCampaign }`、`Content-Type: application/json`。204で成功。
-- **単品取得**: `getItem` → 同 manage-numbers エンドポイントの GET（L466、未使用）。
+- **商品検索**: `searchItems` → `GET https://api.rms.rakuten.co.jp/es/2.0/items/search`（L484〜）。`title=`（キーワード）, `cursorMark=`, `hits=30`。200で `results[].item` を `{manageNumber, title, price, itemType}` に整形、`numFound`→totalCount、`nextCursorMark` を返す。価格は最初のvariantの `standardPrice`。
+- **ポイント変倍更新**: `updatePointCampaign` → `PATCH https://api.rms.rakuten.co.jp/es/2.0/items/manage-numbers/{manageNumber}`（L586〜）。payload `{ pointCampaign }`、`Content-Type: application/json`。204で成功。
+- **単品取得**: `getItem` → 同 manage-numbers エンドポイントの GET（L627、未使用）。
 - 全呼び出し `muteHttpExceptions: true`。エラー時はステータスコード付きで例外送出。
 
 ### エンドポイント別の挙動（action ごと）
@@ -180,12 +188,13 @@ items.patch のドキュメントには明示されていない。
 - `callback` パラメータあり → JSONP で返す
 
 **POST（`processPost`）** デフォルト action = `updatePointCampaign`
-- `searchItems` → shopId/password 必須 → `authenticateShop` → `searchItems` → `{success, shopName, items, totalCount, nextCursorMark}`
-- `updatePointCampaignWithAuth` → shopId/password 必須 → `authenticateShop` → `updatePointCampaignBatch` → `logResults` → `{success, shopId, shopName, results}`
+- `searchItems` → shopId/password 必須 → `authenticateShop` → `searchItems` → `{success, shopName, features, items, totalCount, nextCursorMark}`（★`features` 追加）
+- `updatePointCampaignWithAuth` → shopId/password 必須 → `authenticateShop` → `updatePointCampaignBatch` → `logResults` → `{success, shopId, shopName, features, results}`（★`features` 追加。**商品別はサーバ側ゲートなし**＝実行ゲートは UI 側。pointRate を 1〜20 で検証）
+- `updateShopPointCampaign`（★Phase 1.2 追加・店舗別スタブ） → shopId/password 必須 → `authenticateShop` → `features.shop_point===true` 必須 → **未実装応答を返す**（本実装は Phase 2 / Python RPA）
 - `updatePointCampaign`（認証なし・後方互換） → shopId 必須（PW不要）→ `getShopCredentials` → `updatePointCampaignBatch` → `{success, shopId, results}`
 - 不明な action → `{success:false, error:'不明なアクション: ...'}`
 
-※ フロントが使うのは `searchItems` と `updatePointCampaignWithAuth` の2つ。
+※ 現フロントが使うのは `searchItems` と `updatePointCampaignWithAuth` の2つ（`features` は返るが**現フロントは未消費**。消費設計は `docs/PHASE_1_3a_FRONTEND_PLAN.md` 参照）。
 
 ## GAS同期コマンド（clasp）
 - `clasp pull` … GAS本体の最新を取得（`コード.js` / `appsscript.json` を上書き）
@@ -203,4 +212,4 @@ items.patch のドキュメントには明示されていない。
 ## 作業上の注意
 - フロント変更は `index.html` 1ファイル。デプロイは GitHub Pages（mainへpushで反映）。カスタムドメインは `CNAME`。
 - GASロジックは `コード.js`（リポジトリ管理下）。GASへの反映は `clasp push`（要確認）。スプレッドシート/楽天API/BASE64デコードはここに実装。
-- GASレスポンス構造（`success`, `shopName`, `error`, `items`, `totalCount`, `nextCursorMark`, `results[]`）がフロントとの契約。
+- GASレスポンス構造（`success`, `shopName`, `error`, `items`, `totalCount`, `nextCursorMark`, `results[]`, ★`features:{item_point, shop_point}`）がフロントとの契約。`features` は Phase 1.2 で追加（助言情報。現フロント未消費）。
