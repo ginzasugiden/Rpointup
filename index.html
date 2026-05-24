@@ -725,6 +725,15 @@
                     <p class="hint">1〜20倍の範囲で設定（店舗負担ポイント）</p>
                 </div>
 
+                <!-- C: 「個別設定しない」（器のみ。ENABLE_CLEAR_SETTING で表示制御。楽天回答待ち） -->
+                <div class="form-group" id="clearSettingGroup" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="clearSetting">
+                        <label for="clearSetting" style="margin: 0; font-weight: normal;">個別設定しない（既存の商品別ポイント変倍設定を削除）</label>
+                    </div>
+                    <p class="hint">※ この機能は準備中です（楽天API 仕様確認中）。</p>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>開始日時<span class="required">*</span></label>
@@ -787,6 +796,11 @@
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZL7lUtYmccXj5q5-YW_CI7W_x2QQp88NB6JDiD8cKC3-KJRUy2y3g_InBTdEw/exec';
         // ===========================================
 
+        // C: 「個別設定しない」機能フラグ（器のみ・既定OFF）。
+        //    楽天サポート回答後に true 化して本実装する。
+        //    ※ features には載せない（楽天API の機能可否は店舗の契約・プランに依存しないため）
+        const ENABLE_CLEAR_SETTING = false;
+
         let authenticatedShop = null; // 認証済み店舗情報 + features を保持（B-1）
         let selectedItems = new Map(); // 選択済み商品 (manageNumber -> item情報)
         let searchCursorMark = null; // ページネーション用
@@ -804,6 +818,9 @@
 
             // B-2: 出力先トグルの初期状態（未認証）
             applyFeatureGating();
+
+            // C: 「個別設定しない」UI の表示制御（器・既定OFF）
+            initClearSettingFeature();
 
             updatePreview();
         });
@@ -1075,6 +1092,13 @@
                 if (itemRadio) itemRadio.checked = true;
             }
             updateOutputTargetUI();
+        }
+
+        // C: 「個別設定しない」UI の表示制御（ENABLE_CLEAR_SETTING のみで制御。features 非依存）
+        function initClearSettingFeature() {
+            const group = document.getElementById('clearSettingGroup');
+            if (!group) return;
+            group.style.display = ENABLE_CLEAR_SETTING ? 'block' : 'none';
         }
 
         // ===========================================
@@ -1390,6 +1414,7 @@
             document.getElementById('pointRateSlider').value = 2;
             document.getElementById('pointRateValue').textContent = '2';
             document.getElementById('noEndDate').checked = false;
+            document.getElementById('clearSetting').checked = false; // C: 器の状態もリセット
             document.getElementById('endDate').disabled = false;
             document.getElementById('endHour').disabled = false;
             document.getElementById('statusMessage').style.display = 'none';
