@@ -713,9 +713,6 @@
         </div>
     </div>
 
-    <!-- 隠しiframe（POST用） -->
-    <iframe id="submitFrame" name="submitFrame" style="display:none;"></iframe>
-
     <script>
         // ===========================================
         // 設定 - ここを変更してください
@@ -723,8 +720,7 @@
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDk1TxHZL7lUtYmccXj5q5-YW_CI7W_x2QQp88NB6JDiD8cKC3-KJRUy2y3g_InBTdEw/exec';
         // ===========================================
 
-        let shops = [];
-        let authenticatedShop = null; // 認証済み店舗情報
+        let authenticatedShop = null; // 認証済み店舗情報 + features を保持（B-1）
         let selectedItems = new Map(); // 選択済み商品 (manageNumber -> item情報)
         let searchCursorMark = null; // ページネーション用
 
@@ -915,6 +911,41 @@
         }
 
         // ===========================================
+        // B-1: features 正規化
+        // 応答に features が無い場合（旧デプロイ）は全機能利用可とみなすフォールバック。
+        // features がある場合は明示 true のみ true として扱う。
+        // ===========================================
+        function normalizeFeatures(features) {
+            if (!features) {
+                return { item_point: true, shop_point: true };
+            }
+            return {
+                item_point: features.item_point === true,
+                shop_point: features.shop_point === true
+            };
+        }
+
+        // ===========================================
+        // B-5: エラー文言コントラクト
+        // 認証/認可/契約/プランに関するエラーは「認証ステータス領域」に表示する。
+        // 旧実装の error.includes('認証') を廃止し、GAS が返す文言リストで判定する。
+        // ===========================================
+        const AUTH_STATUS_ERROR_MESSAGES = [
+            '認証に失敗しました。IDまたはパスワードが正しくありません', // Layer0: ID/PW 不一致（コード.js:165,186）
+            'API認証情報が設定されていません',                          // Layer0: 楽天APIキー欠落（コード.js:190）
+            'このサービスの利用権がありません',                          // Layer1: 利用権なし（コード.js:200）
+            'ご契約が無効です。ご契約状況をご確認ください',              // Layer1: 契約失効（コード.js:205）
+            'この機能は現在のプランではご利用いただけません',            // Layer2: プラン未許可（コード.js:430）
+            '店舗別ポイント変倍は現在ご利用いただけません。お問い合わせください。' // 店舗別スタブ未実装（コード.js:438）
+        ];
+
+        // エラー文言が認証ステータス領域に出すべきものか判定
+        function isAuthStatusError(errorMsg) {
+            if (!errorMsg) return false;
+            return AUTH_STATUS_ERROR_MESSAGES.some(m => errorMsg.includes(m));
+        }
+
+        // ===========================================
         // 商品検索機能
         // ===========================================
 
@@ -961,14 +992,19 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // 認証成功 - 検索を有効化
+                    // B-1: 認証成功 - 店舗情報と features を保持（features 欠落時は全機能利用可フォールバック）
+                    authenticatedShop = {
+                        shopName: result.shopName,
+                        features: normalizeFeatures(result.features)
+                    };
                     enableSearch();
                     showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
-                    
+
                     displaySearchResults(result.items, result.totalCount, result.nextCursorMark);
                     hideSearchStatus();
                 } else {
-                    if (result.error && result.error.includes('認証')) {
+                    // B-5: 認証/認可/契約/プラン系の文言は認証ステータス領域に出し、検索を無効化
+                    if (isAuthStatusError(result.error)) {
                         showAuthStatus(`❌ ${result.error}`, 'error');
                         disableSearch();
                     }
@@ -1141,29 +1177,6 @@
                     <button type="button" class="remove-btn" onclick="removeSelectedItem('${item.manageNumber}')">×</button>
                 </div>
             `).join('');
-        }
-
-        // 日時をdatetime-local形式にフォーマット
-        function formatDateTimeLocal(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        }
-
-        // ISO 8601形式（JST）にフォーマット
-        function formatToISO8601JST(dateTimeLocalValue) {
-            if (!dateTimeLocalValue) return null;
-            const date = new Date(dateTimeLocalValue);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+09:00`;
         }
 
         // 無期限チェックボックス
@@ -1346,17 +1359,21 @@
                         message += `, 失敗 ${failCount}件`;
                     }
                     showStatus(message, failCount > 0 ? 'error' : 'success');
-                    
-                    // 認証成功を表示
+
+                    // B-1: 認証成功表示 + features 更新（フォールバック込み）
                     if (result.shopName) {
+                        authenticatedShop = {
+                            shopName: result.shopName,
+                            features: normalizeFeatures(result.features)
+                        };
                         showAuthStatus(`✅ 認証成功: ${result.shopName}`, 'success');
                     }
-                    
+
                     // 詳細結果を表示
                     showResultsDetail(result.results);
                 } else {
-                    // 認証エラーの場合
-                    if (result.error && result.error.includes('認証')) {
+                    // B-5: 認証/認可/契約/プラン系の文言は認証ステータス領域に出す
+                    if (isAuthStatusError(result.error)) {
                         showAuthStatus(`❌ ${result.error}`, 'error');
                     }
                     showStatus(`❌ エラー: ${result.error}`, 'error');
